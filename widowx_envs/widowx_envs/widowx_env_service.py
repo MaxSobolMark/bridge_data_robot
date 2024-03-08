@@ -30,7 +30,7 @@ class WidowXConfigs:
         ],
         "action_clipping": "xyz",
         "catch_environment_except": False,
-        "start_state": [0.3, 0.0, 0.15, 0, 0, 0, 1], # pose when reset is called
+        "start_state": [0.3, 0.0, 0.15, 0, 0, 0, 1],  # pose when reset is called
         "skip_move_to_neutral": False,
         "return_full_image": False,
         "camera_topics": [{"name": "/blue/image_raw"}],
@@ -44,7 +44,9 @@ class WidowXConfigs:
     )
 
 
-def print_red(x): return print("\033[91m{}\033[00m".format(x))
+def print_red(x):
+    return print("\033[91m{}\033[00m".format(x))
+
 
 ##############################################################################
 
@@ -55,10 +57,11 @@ class WidowXStatus:
     EXECUTION_FAILURE = 2
     NOT_INITIALIZED = 3
 
+
 ##############################################################################
 
 
-class WidowXActionServer():
+class WidowXActionServer:
     """
     This is the highest level abstraction of the widowx setup. We will run
     this as a server, and we can have multiple clients connect to it and
@@ -72,10 +75,12 @@ class WidowXActionServer():
 
         self.testing = testing  # TODO: remove this soon
         self.bridge_env = None
-        self.__server = ActionServer(edgeml_config,
-                                     obs_callback=self.__observe,
-                                     act_callback=self.__action,
-                                     log_level=logging.WARNING)
+        self.__server = ActionServer(
+            edgeml_config,
+            obs_callback=self.__observe,
+            act_callback=self.__action,
+            log_level=logging.WARNING,
+        )
 
         self._env_params = {}  # default nothing
         self._image_size = None  # default None
@@ -126,7 +131,8 @@ class WidowXActionServer():
 
         self.get_tf_mat = get_tf_mat
         self.bridge_env = BridgeDataRailRLPrivateWidowX(
-            _env_params, fixed_image_size=image_size)
+            _env_params, fixed_image_size=image_size
+        )
         print("Initialized bridge env.")
 
     def hard_reset(self) -> bool:
@@ -152,8 +158,10 @@ class WidowXActionServer():
         self._image_size = payload["image_size"]
 
         if self.testing:
-            print_red("WARNING: Running in testing mode, \
-                no env will be initialized.")
+            print_red(
+                "WARNING: Running in testing mode, \
+                no env will be initialized."
+            )
             return WidowXStatus.NOT_INITIALIZED
 
         elif not do_reinit:
@@ -177,7 +185,7 @@ class WidowXActionServer():
             obs = {
                 "image": obs["image"],
                 "state": obs["state"],
-                "full_image": mat_to_jpeg(obs["full_image"][0])  # faster
+                "full_image": mat_to_jpeg(obs["full_image"][0]),  # faster
             }
         else:
             # use dummy img with random noise
@@ -222,18 +230,22 @@ class WidowXActionServer():
         #           this will require further debug, a full refactoring
         # self.bridge_env.controller().move_to_neutral(duration=1.0)
         # self.bridge_env.controller().open_gripper()
+        if "eep" in payload and payload["eep"] is not None:
+            self.bridge_env._hp["start_state"] = payload["eep"]
         self.bridge_env.reset()
         self.bridge_env.start()
         return WidowXStatus.SUCCESS
 
+
 ##############################################################################
 
 
-class WidowXClient():
-    def __init__(self,
-                 host: str = "localhost",
-                 port: int = 5556,
-                 ):
+class WidowXClient:
+    def __init__(
+        self,
+        host: str = "localhost",
+        port: int = 5556,
+    ):
         """
         Args:
             :param host: the host ip address
@@ -245,25 +257,26 @@ class WidowXClient():
         self.__client = ActionClient(host, edgeml_config)
         print("Initialized widowx client.")
 
-    def init(self,
-             env_params: dict,
-             image_size: int = 256,
-             ) -> WidowXStatus:
+    def init(
+        self,
+        env_params: dict,
+        image_size: int = 256,
+    ) -> WidowXStatus:
         """
         Initialize the environment.
             :param env_params: a dict of env params
             :param image_size: the size of the image to return
         """
-        payload = {"env_params": env_params,
-                   "image_size": image_size}
+        payload = {"env_params": env_params, "image_size": image_size}
         res = self.__client.act("init", payload)
         return WidowXStatus.NO_CONNECTION if res is None else res["status"]
 
-    def move(self,
-             pose: np.ndarray,
-             duration: float = 1.0,
-             blocking: bool = False,
-             ) -> WidowXStatus:
+    def move(
+        self,
+        pose: np.ndarray,
+        duration: float = 1.0,
+        blocking: bool = False,
+    ) -> WidowXStatus:
         """
         Command the arm to move to a given pose in space.
             :param pose: dim of 6, [x, y, z, roll, pitch, yaw] or
@@ -287,13 +300,12 @@ class WidowXClient():
         Note that the action is in relative space.
         """
         assert len(action) in [5, 7], "invalid action shape"
-        res = self.__client.act("step_action", {"action": action,
-                                                "blocking": blocking})
+        res = self.__client.act("step_action", {"action": action, "blocking": blocking})
         return WidowXStatus.NO_CONNECTION if res is None else res["status"]
 
-    def reset(self) -> WidowXStatus:
+    def reset(self, eep: Optional[np.ndarray] = None) -> WidowXStatus:
         """Reset the arm to the neutral position."""
-        res = self.__client.act("reset", {})
+        res = self.__client.act("reset", {"eep": eep})
         return WidowXStatus.NO_CONNECTION if res is None else res["status"]
 
     def get_observation(self) -> Optional[dict]:
@@ -320,6 +332,7 @@ class WidowXClient():
         """
         self.__client.act("reboot_motor", {"joint_name": joint_name})
 
+
 ##############################################################################
 
 
@@ -344,11 +357,11 @@ def show_video(client, duration, full_image=True):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--server', action='store_true')
-    parser.add_argument('--client', action='store_true')
-    parser.add_argument('--ip', type=str, default='localhost')
-    parser.add_argument('--port', type=int, default=5556)
-    parser.add_argument('--test', action='store_true', help='run in test mode')
+    parser.add_argument("--server", action="store_true")
+    parser.add_argument("--client", action="store_true")
+    parser.add_argument("--ip", type=str, default="localhost")
+    parser.add_argument("--port", type=int, default=5556)
+    parser.add_argument("--test", action="store_true", help="run in test mode")
     args = parser.parse_args()
 
     if args.server:
@@ -397,7 +410,7 @@ def main():
 
         # NOTE, use blocking to make sure the qpos is reset after the move
         # this is important so that step_action works in this initial position
-        res = widowx_client.move(np.array([0.2, 0.1, 0.3, 0, 1.57, 0.]), blocking=True)
+        res = widowx_client.move(np.array([0.2, 0.1, 0.3, 0, 1.57, 0.0]), blocking=True)
         show_video(widowx_client, duration=0.5)
 
         # close gripper
@@ -428,5 +441,5 @@ def main():
         print("Done all")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
