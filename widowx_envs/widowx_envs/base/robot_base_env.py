@@ -379,7 +379,10 @@ class RobotBaseEnv(BaseEnv):
         elif self._hp.action_mode == "3trans1rot":
             if not (abs(full_state[3]) < 0.2 and abs(full_state[4]) < 0.2):
                 print("out of plane rotation detected!")
-                raise Environment_Exception
+                if self._hp.catch_environment_except:
+                    self.move_except = True
+                else:
+                    raise Environment_Exception
             obs["state"] = np.concatenate(
                 [full_state[:3], full_state[5:]]
             )  # remove roll and pitch since they are (close to) zero
