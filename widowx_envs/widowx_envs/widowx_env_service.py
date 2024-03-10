@@ -186,6 +186,7 @@ class WidowXActionServer:
                 "image": obs["image"],
                 "state": obs["state"],
                 "full_image": mat_to_jpeg(obs["full_image"][0]),  # faster
+                "env_done": obs["env_done"],
             }
         else:
             # use dummy img with random noise
