@@ -19,8 +19,8 @@ from widowx_controller.widowx_controller import publish_transform
 import logging
 import json
 from gym import spaces
-
-from widowx_envs.utils import read_yaml_file
+from widowx_envs.policies.vr_teleop_policy import publish_transform
+from widowx_envs.utils import read_yaml_file, R_to_axis_angle, axis_angle_to_R
 import os
 from widowx_envs.utils.exceptions import Environment_Exception
 
@@ -57,6 +57,7 @@ class RobotBaseEnv(BaseEnv):
             gripper_attached=self._hp.gripper_attached,
             gripper_params=self._hp.gripper_params,
             normal_base_angle=self._hp.workspace_rotation_angle_z,
+            neutral_joint_angles=self._hp.neutral_joint_angles,
         )
 
         logging.getLogger("robot_logger").info(
@@ -83,7 +84,10 @@ class RobotBaseEnv(BaseEnv):
             self._depth_cameras = []
             self._depth_camera_info = []
 
-        self._controller.open_gripper(True)
+        if self._hp.gripper_flip_value:
+            self._controller.close_gripper(True)
+        else:
+            self._controller.open_gripper(True)
 
         if len(self._cameras) > 1:
             first_cam_dim = (self._cameras[0].img_height, self._cameras[1].img_width)
@@ -156,6 +160,7 @@ class RobotBaseEnv(BaseEnv):
             "robot_name": None,
             "robot_controller": WidowX_Controller,
             "gripper_attached": "default",
+            "gripper_flip_value": False,
             "camera_topics": [IMTopic("/cam0/image_raw", flip=True)],
             "start_at_neutral": False,
             "start_at_current_pos": False,
@@ -241,7 +246,7 @@ class RobotBaseEnv(BaseEnv):
                 self.action_space.low[-1],
                 self.action_space.high[-1],
             )
-        if self._hp.action_clipping == "xyz":
+        if self._hp.action_clipping in ["xyz", "xyzrot"]:
             new_next_transform = copy.deepcopy(next_transform)
             new_next_transform[:3, 3] = np.clip(
                 next_transform[:3, 3], self._low_bound[:3], self._high_bound[:3]
@@ -256,6 +261,27 @@ class RobotBaseEnv(BaseEnv):
             # print(f"transform: ", next_transform[:3, 3])
             # print(f"new_transform: ", new_next_transform[:3, 3])
             next_transform = new_next_transform
+        if self._hp.action_clipping == "xyzrot":
+            up_rot = np.diag([1.0, 1.0, -1.0])[:, ::-1]
+            curr_rot = next_transform[:3, :3]
+            diff_rot = up_rot.dot(curr_rot.T)
+            axis, theta = R_to_axis_angle(diff_rot)
+            theta_deg = theta * 180 / np.pi
+            # clip_value = 2
+            # clip_value = 30
+            clip_value = 50
+            # if axis[1] < 0:
+            #     axis[1] = 0
+            #     axis /= np.linalg.norm(axis)
+
+            # if theta_deg > 20:
+            #     print('axis: ', np.round(axis, 1))
+            #     print('theta: ', np.round(theta_deg, 1))
+            if theta_deg > clip_value:
+                # clip rotation
+                diff_rot = axis_angle_to_R(axis, clip_value * np.pi / 180)
+                curr_rot = (np.linalg.inv(up_rot).dot(diff_rot)).T
+                next_transform[:3, :3] = curr_rot
         return next_transform, new_gripperstate
 
     def get_target_state(self):
@@ -293,6 +319,8 @@ class RobotBaseEnv(BaseEnv):
 
         # assume that the gripper open state is 1. and the close state is 0.
 
+        if self._hp.gripper_flip_value:
+            new_gripperstate = 1.0 - new_gripperstate
         if self._hp.continuous_gripper:
             self._controller.set_continuous_gripper_position(new_gripperstate)
         else:

@@ -32,8 +32,10 @@ class LatestObservation(object):
 
 
 class CameraRecorder:
-    TRACK_SKIP = 2        # the camera publisher works at 60 FPS but camera itself only goes at 30
-    MAX_REPEATS = 100      # camera errors after 10 repeated frames in a row
+    TRACK_SKIP = (
+        2  # the camera publisher works at 60 FPS but camera itself only goes at 30
+    )
+    MAX_REPEATS = 100  # camera errors after 10 repeated frames in a row
 
     def __init__(self, topic_data, opencv_tracking=False, save_videos=False):
         """
@@ -69,28 +71,40 @@ class CameraRecorder:
         else:
             # Trys to guess the correct camera info name based on ROS conventions.
             # If this code is hanging, manually set the info_name in the conf file when defining the IMTopic
-            self._camera_info_name= os.path.join(os.path.split(self._topic_name)[0], "camera_info")
+            self._camera_info_name = os.path.join(
+                os.path.split(self._topic_name)[0], "camera_info"
+            )
         print("Trying to read camera info from ", self._camera_info_name)
-
         self._camera_info = rospy.wait_for_message(self._camera_info_name, CameraInfo)
 
         print("Successfully read camera info")
 
-
         rospy.Subscriber(topic_data.name, Image_msg, self.store_latest_im)
-        logger = logging.getLogger('robot_logger')
-        logger.debug('downing sema on topic: {}'.format(topic_data.name))
+        logger = logging.getLogger("robot_logger")
+        logger.debug("downing sema on topic: {}".format(topic_data.name))
         success = self._status_sem.acquire(timeout=5)
         if not success:
-            print('Still waiting for an image to arrive at CameraRecorder... Topic name:', self._topic_name)
+            print(
+                "Still waiting for an image to arrive at CameraRecorder... Topic name:",
+                self._topic_name,
+            )
             self._status_sem.acquire()
-        logger.info("Cameras {} subscribed: stream is {}x{}".format(self._topic_data.name, self._cam_width, self._cam_height))
+        logger.info(
+            "Cameras {} subscribed: stream is {}x{}".format(
+                self._topic_data.name, self._cam_width, self._cam_height
+            )
+        )
 
     def _cam_start_tracking(self, lt_ob, point):
         lt_ob.reset_tracker()
-        lt_ob.bbox = np.array([int(point[1] - self.box_height / 2.),
-                               int(point[0] - self.box_height / 2.),
-                               self.box_height, self.box_height]).astype(np.int64)
+        lt_ob.bbox = np.array(
+            [
+                int(point[1] - self.box_height / 2.0),
+                int(point[0] - self.box_height / 2.0),
+                self.box_height,
+                self.box_height,
+            ]
+        ).astype(np.int64)
 
         lt_ob.cv2_tracker.init(lt_ob.img_cv2, tuple(lt_ob.bbox))
         lt_ob.track_itr = 0
@@ -107,9 +121,9 @@ class CameraRecorder:
         self._cam_start_tracking(self._latest_image, start_points[0])
         self._is_tracking = True
         self._latest_image.mutex.release()
-        rospy.sleep(2)   # sleep a bit for first few messages to initialize tracker
+        rospy.sleep(2)  # sleep a bit for first few messages to initialize tracker
 
-        logging.getLogger('robot_logger').info("TRACKING INITIALIZED")
+        logging.getLogger("robot_logger").info("TRACKING INITIALIZED")
 
     def end_tracking(self):
         self._latest_image.mutex.acquire()
@@ -118,8 +132,9 @@ class CameraRecorder:
         self._latest_image.mutex.release()
 
     def _bbox2point(self, bbox):
-        point = np.array([int(bbox[1]), int(bbox[0])]) \
-                  + np.array([self.box_height / 2, self.box_height / 2])
+        point = np.array([int(bbox[1]), int(bbox[0])]) + np.array(
+            [self.box_height / 2, self.box_height / 2]
+        )
         return point.astype(np.int32)
 
     def get_track(self):
@@ -141,7 +156,7 @@ class CameraRecorder:
             if current_hash == self._last_hash_get_image:
                 # logging.getLogger('robot_logger').error('Repeated images, camera queried too fast!')
                 # rospy.signal_shutdown('shutting down.')
-                print('repated images for get_image method!')
+                print("repated images for get_image method!")
         self._last_hash_get_image = current_hash
         self._latest_image.mutex.release()
         return time_stamp, img_cv2
@@ -202,16 +217,20 @@ class CameraRecorder:
             if self._num_repeats < self.MAX_REPEATS:
                 self._num_repeats += 1
             else:
-                logging.getLogger('robot_logger').error(f'Too many repeated images.\
-                    Check camera with topic {self._topic_name}!')
-                rospy.signal_shutdown('Too many repeated images. Check camera!')
+                logging.getLogger("robot_logger").error(
+                    f"Too many repeated images.\
+                    Check camera with topic {self._topic_name}!"
+                )
+                rospy.signal_shutdown("Too many repeated images. Check camera!")
         else:
             self._num_repeats = 0
         self._last_hash = current_hash
 
         if self._save_vides and self._saving:
             if self._latest_image.save_itr % self.TRACK_SKIP == 0:
-                self._buffers.append(copy.deepcopy(self._latest_image.img_cv2)[:, :, ::-1])
+                self._buffers.append(
+                    copy.deepcopy(self._latest_image.img_cv2)[:, :, ::-1]
+                )
             self._latest_image.save_itr += 1
         self._latest_image.mutex.release()
         # print('time process image', rospy.get_time() - t0)
@@ -227,20 +246,19 @@ class CameraRecorder:
     @property
     def camera_info(self):
         return self._camera_info
-    
 
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     from multicam_server.topic_utils import IMTopic
+
     rospy.init_node("camera_rec_test")
-    imtopic = IMTopic('/cam1/image_raw')
+    imtopic = IMTopic("/cam1/image_raw")
     rec = CameraRecorder(imtopic)
 
     r = rospy.Rate(5)  # 10hz
     start_time = rospy.get_time()
     for t in range(20):
-        print('t{} before get image {}'.format(t, rospy.get_time() - start_time))
+        print("t{} before get image {}".format(t, rospy.get_time() - start_time))
         t0 = rospy.get_time()
         tstamp, im = rec.get_image()
         # print('get image took', rospy.get_time() - t0)
@@ -248,7 +266,11 @@ if __name__ == '__main__':
         im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
 
         t1 = rospy.get_time()
-        cv2.imwrite(os.environ['EXP'] + '/test_image_t{}_{}.jpg'.format(t, rospy.get_time() - start_time), im)
+        cv2.imwrite(
+            os.environ["EXP"]
+            + "/test_image_t{}_{}.jpg".format(t, rospy.get_time() - start_time),
+            im,
+        )
         # print('save took ', rospy.get_time() - t1)
 
         r.sleep()

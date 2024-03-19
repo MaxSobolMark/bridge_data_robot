@@ -213,6 +213,7 @@ class WidowX_Controller(RobotControllerBase):
         enable_rotation="6dof",
         gripper_attached="custom",
         normal_base_angle=0,
+        neutral_joint_angles=None,
     ):
         """
         gripper_attached: either "custom" or "default"
@@ -261,7 +262,10 @@ class WidowX_Controller(RobotControllerBase):
         # self.neutral_joint_angles = np.zeros(self._qn)
         # self.neutral_joint_angles[0] = normal_base_angle
         # self.neutral_joint_angles[-2] = np.pi / 2
-        self.neutral_joint_angles = NEUTRAL_JOINT_STATE
+        if neutral_joint_angles is None:
+            self.neutral_joint_angles = NEUTRAL_JOINT_STATE
+        else:
+            self.neutral_joint_angles = neutral_joint_angles
         self.enable_rotation = enable_rotation
 
     def reboot_motor(self, joint_name: str):
