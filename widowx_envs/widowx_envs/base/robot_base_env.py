@@ -185,6 +185,7 @@ class RobotBaseEnv(BaseEnv):
                 des_pos_max=1,
                 des_pos_min=0,
             ),
+            "neutral_joint_angles": None,
         }
         parent_params = super(RobotBaseEnv, self)._default_hparams()
         parent_params.update(default_dict)
