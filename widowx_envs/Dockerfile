@@ -61,7 +61,7 @@ ENV PYTHONPATH="${PYTHONPATH}:~/interbotix_ws/src/interbotix_ros_toolboxes/inter
 # install python dependencies
 COPY requirements.txt /tmp/requirements.txt
 RUN source /opt/ros/noetic/setup.bash && source ~/interbotix_ws/devel/setup.bash && python3 -m venv --system-site-packages ~/myenv
-RUN source ~/myenv/bin/activate && pip install wheel && pip install -r /tmp/requirements.txt
+RUN source ~/myenv/bin/activate && pip install wheel && pip install -r /tmp/requirements.txt --ignore-installed
 
 # add widowx_envs code for build step
 COPY . /home/${USER_ID}/widowx_envs

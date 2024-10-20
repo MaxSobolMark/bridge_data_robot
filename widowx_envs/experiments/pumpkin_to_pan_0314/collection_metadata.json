@@ -1,0 +1,16 @@
+{
+    "environment": "toykitchen",
+    "camera_configuration": "table_top",
+    "robot_base_position_variation": "6-11_13",
+    "camera_variation": "left_conf0",
+    "camera_type": "Logitech C920",
+    "policy_desc": "push pot",
+    "bin_type": "none",
+    "bin_insert": "none",
+    "robot": "widowx",
+    "gripper": "default",
+    "background": "table",
+    "primitives": "none",
+    "action_space": "x,y,z,roll,pitch,yaw,grasp_continuous",
+    "object_classes": "pot"
+}

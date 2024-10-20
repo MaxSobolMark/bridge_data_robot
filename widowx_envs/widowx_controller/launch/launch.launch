@@ -3,7 +3,7 @@
     <arg name="video_stream_provider" default="0" />
     <arg name="camera_connector_chart" default="" />
     <arg name="python_node" default="false" />
-    <arg name="realsense" default="true" />
+    <!-- <arg name="realsense" default="true" /> -->
 
     <include file="$(find interbotix_xsarm_control)/launch/xsarm_control.launch">
         <arg name="robot_model" value="$(env ROBONETV2_ARM)"/>
